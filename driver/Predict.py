@@ -11,25 +11,41 @@ from data.Dataloader import *
 import pickle
 import random
 
-def predict(data, parser, vocab, outputFile):
+def predict(data, parser, vocab, outputFile, unlabeled=True):
     start = time.time()
     parser.model.eval()
     output = open(outputFile, 'w', encoding='utf-8')
-    all_batch = len(data) // config.test_batch_size + 1
+    #all_batch = len(data) // config.test_batch_size + 1
     count = 0
+
+    arc_total_test, arc_correct_test, rel_total_test, rel_correct_test = 0, 0, 0, 0
+
     for onebatch in data_iter(data, config.test_batch_size, False):
-        count += 1
-        sys.stdout.write("\r{} / {}.".format(count, all_batch))
-        words, extwords, tags, heads, rels, lengths, masks, scores = batch_data_variable(onebatch, vocab, eval=True)
+        words, extwords, tags, heads, rels, lengths, masks, scores = batch_data_variable(onebatch, vocab, unlabeled)
         arcs_batch, rels_batch, arc_values = parser.parse(words, extwords, tags, lengths, masks, predict=True)
         for id, tree in enumerate(batch_variable_depTree(onebatch, arcs_batch, rels_batch, lengths, vocab)):
             printDepTree(output, tree, arc_values=arc_values[id])
 
+            if not unlabeled:
+                arc_total, arc_correct, rel_total, rel_correct = evalDepTree(onebatch[count], tree)
+                arc_total_test += arc_total
+                arc_correct_test += arc_correct
+                rel_total_test += rel_total
+                rel_correct_test += rel_correct
+                count += 1
+
+
     output.close()
+
 
     end = time.time()
     during_time = float(end - start)
     print("\nsentence num: %d,  parser predict time = %.2f " % (len(data), during_time))
+
+    if not unlabeled:
+        uas = arc_correct_test * 100.0 / arc_total_test
+        las = rel_correct_test * 100.0 / rel_total_test
+        return arc_correct_test, rel_correct_test, arc_total_test, uas, las
 
 
 if __name__ == '__main__':
@@ -45,7 +61,7 @@ if __name__ == '__main__':
 
     argparser = argparse.ArgumentParser()
     argparser.add_argument('--config_file', default='../ctb.parser.cfg.debug')
-    argparser.add_argument('--unlabled_file', default='../ctb51/PB-Unlabeled-sample.conll')
+    argparser.add_argument('--unlabled_file', default='')
     argparser.add_argument('--model', default='BaseParser')
     argparser.add_argument('--thread', default=4, type=int, help='thread num')
     argparser.add_argument('--use-cuda', action='store_true', default=True)
@@ -71,9 +87,17 @@ if __name__ == '__main__':
 
     parser = BiaffineParser(model, vocab.ROOT)
     # test_data = read_corpus(config.test_file, vocab)
-    unlabled_data = read_corpus(config.unlabled_file, vocab)
 
-    predict(unlabled_data, parser, vocab, config.unlabled_file + '.out')
+    if config.unlabled_file is not "":
+        unlabled_data = read_corpus(config.unlabled_file, vocab)
+        predict(unlabled_data, parser, vocab, config.unlabled_file + '.out')
+    else:
+        test_data = read_corpus(config.test_file, vocab)
+        arc_correct, rel_correct, arc_total, test_uas, test_las = \
+            predict(test_data, parser, vocab, config.test_file + '.out', unlabeled=False)
+        print("Test: uas = %d/%d = %.2f, las = %d/%d =%.2f" % \
+              (arc_correct, arc_total, test_uas, rel_correct, arc_total, test_las))
+
     print("Predict finished.")
 
 

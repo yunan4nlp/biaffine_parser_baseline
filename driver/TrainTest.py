@@ -76,7 +76,7 @@ def evaluate(data, parser, vocab, outputFile):
     arc_total_test, arc_correct_test, rel_total_test, rel_correct_test = 0, 0, 0, 0
 
     for onebatch in data_iter(data, config.test_batch_size, False):
-        words, extwords, tags, heads, rels, lengths, masks, scores = batch_data_variable(onebatch, vocab, eval=True)
+        words, extwords, tags, heads, rels, lengths, masks, scores = batch_data_variable(onebatch, vocab, unlabeled=True)
         count = 0
         arcs_batch, rels_batch = parser.parse(words, extwords, tags, lengths, masks)
         for tree in batch_variable_depTree(onebatch, arcs_batch, rels_batch, lengths, vocab):

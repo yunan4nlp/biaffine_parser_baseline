@@ -21,7 +21,7 @@ def predict(data, parser, vocab, outputFile, unlabeled=True):
     arc_total_test, arc_correct_test, rel_total_test, rel_correct_test = 0, 0, 0, 0
 
     for onebatch in data_iter(data, config.test_batch_size, False):
-        words, extwords, tags, heads, rels, lengths, masks, scores = batch_data_variable(onebatch, vocab, unlabeled)
+        words, extwords, tags, heads, rels, lengths, masks, scores = batch_data_variable(onebatch, vocab, ignoreTree=True)
         arcs_batch, rels_batch, arc_values = parser.parse(words, extwords, tags, lengths, masks, predict=True)
         for id, tree in enumerate(batch_variable_depTree(onebatch, arcs_batch, rels_batch, lengths, vocab)):
             printDepTree(output, tree, arc_values=arc_values[id])
@@ -186,7 +186,7 @@ if __name__ == '__main__':
 
     if args.unlabled_file is not "":
         unlabled_data = read_corpus(args.unlabled_file, ref_v)
-        multi_models_predict(unlabled_data, parser, ref_v, args.unlabled_file + '.out', unlabeled=True)
+        multi_models_predict(unlabled_data, parser_list, ref_v, args.unlabled_file + '.out', unlabeled=True)
     else:
         test_data = read_corpus(config.test_file, ref_v)
         arc_correct, rel_correct, arc_total, test_uas, test_las = \

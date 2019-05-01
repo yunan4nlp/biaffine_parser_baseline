@@ -21,7 +21,7 @@ def predict(data, parser, vocab, outputFile, unlabeled=True):
     arc_total_test, arc_correct_test, rel_total_test, rel_correct_test = 0, 0, 0, 0
 
     for onebatch in data_iter(data, config.test_batch_size, False):
-        words, extwords, tags, heads, rels, lengths, masks, scores = batch_data_variable(onebatch, vocab, unlabeled)
+        words, extwords, tags, heads, rels, lengths, masks, scores = batch_data_variable(onebatch, vocab, ignoreTree=True)
         arcs_batch, rels_batch, arc_values = parser.parse(words, extwords, tags, lengths, masks, predict=True)
         for id, tree in enumerate(batch_variable_depTree(onebatch, arcs_batch, rels_batch, lengths, vocab)):
             printDepTree(output, tree, arc_values=arc_values[id])
@@ -33,8 +33,6 @@ def predict(data, parser, vocab, outputFile, unlabeled=True):
                 rel_total_test += rel_total
                 rel_correct_test += rel_correct
                 count += 1
-
-
     output.close()
 
 

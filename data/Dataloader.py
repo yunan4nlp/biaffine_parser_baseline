@@ -10,10 +10,10 @@ def read_corpus(file_path, vocab=None):
             data.append(sentence)
     return data
 
-def sentences_numberize(sentences, vocab, eval):
+def sentences_numberize(sentences, vocab, ignoreTree):
     for sentence in sentences:
-        if eval:
-            yield sentence2id_eval(sentence, vocab)
+        if ignoreTree:
+            yield sentence2id_ignore_tree(sentence, vocab)
         else:
             yield sentence2id(sentence, vocab)
 
@@ -30,7 +30,7 @@ def sentence2id(sentence, vocab):
 
     return result
 
-def sentence2id_eval(sentence, vocab):
+def sentence2id_ignore_tree(sentence, vocab):
     result = []
     for dep in sentence:
         wordid = vocab.word2id(dep.form)
@@ -71,7 +71,7 @@ def data_iter(data, batch_size, shuffle=True):
         yield batch
 
 
-def batch_data_variable(batch, vocab, eval=False):
+def batch_data_variable(batch, vocab, ignoreTree=False):
     length = len(batch[0])
     batch_size = len(batch)
     for b in range(1, batch_size):
@@ -88,7 +88,7 @@ def batch_data_variable(batch, vocab, eval=False):
     # scores = []
 
     b = 0
-    for sentence in sentences_numberize(batch, vocab, eval):
+    for sentence in sentences_numberize(batch, vocab, ignoreTree):
         index = 0
         length = len(sentence)
         lengths.append(length)

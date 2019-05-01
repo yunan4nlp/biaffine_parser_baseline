@@ -110,6 +110,28 @@ class BiaffineParser(object):
 
         return arc_correct, label_correct, total_arcs
 
+    def parser_forward(self, words, extwords, tags, masks):
+        if words is not None:
+            self.forward(words, extwords, tags, masks)
+
+    def parser_arc_prob(self, lengths):
+        arc_probs = []
+        arc_logits = self.arc_logits.data.cpu().numpy()
+        for arc_logit, length in zip(arc_logits, lengths):
+            arc_prob = softmax2d(arc_logit, length, length)
+            arc_probs.append(arc_prob)
+        return np.array(arc_probs)
+
+    def parser_rel_prob(self, arc_preds, lengths):
+        rel_logits = self.rel_logits.data.cpu().numpy()
+        rel_probs = []
+        for arc_pred, rel_logit, length in zip(arc_preds, rel_logits, lengths):
+            rel_logit = rel_logit[np.arange(len(arc_pred)), arc_pred]
+            size = rel_logit.shape
+            rel_prob = softmax2d(rel_logit, size[0], size[1])
+            rel_probs.append(rel_prob)
+        return np.array(rel_probs)
+
     def parse(self, words, extwords, tags, lengths, masks, predict=False):
         if words is not None:
             self.forward(words, extwords, tags, masks)

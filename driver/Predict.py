@@ -32,7 +32,7 @@ def predict(data, parser, vocab, outputFile, unlabeled=True):
                 arc_correct_test += arc_correct
                 rel_total_test += rel_total
                 rel_correct_test += rel_correct
-                count += 1
+        count += 1
     output.close()
 
 

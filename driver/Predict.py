@@ -16,7 +16,6 @@ def predict(data, parser, vocab, outputFile, unlabeled=True):
     parser.model.eval()
     output = open(outputFile, 'w', encoding='utf-8')
     #all_batch = len(data) // config.test_batch_size + 1
-    count = 0
 
     arc_total_test, arc_correct_test, rel_total_test, rel_correct_test = 0, 0, 0, 0
 
@@ -27,12 +26,11 @@ def predict(data, parser, vocab, outputFile, unlabeled=True):
             printDepTree(output, tree, arc_values=arc_values[id])
 
             if not unlabeled:
-                arc_total, arc_correct, rel_total, rel_correct = evalDepTree(onebatch[count], tree)
+                arc_total, arc_correct, rel_total, rel_correct = evalDepTree(onebatch[id], tree)
                 arc_total_test += arc_total
                 arc_correct_test += arc_correct
                 rel_total_test += rel_total
                 rel_correct_test += rel_correct
-        count += 1
     output.close()
 
 

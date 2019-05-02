@@ -79,7 +79,7 @@ def multi_models_predict(data, parser_list, vocab, outputFile, unlabeled=True):
     arc_total_test, arc_correct_test, rel_total_test, rel_correct_test = 0, 0, 0, 0
 
     for onebatch in data_iter(data, config.test_batch_size, False):
-        words, extwords, tags, heads, rels, lengths, masks, scores = batch_data_variable(onebatch, vocab, unlabeled)
+        words, extwords, tags, heads, rels, lengths, masks, scores = batch_data_variable(onebatch, vocab, ignoreTree=True)
 
         arc_probs_list = []
         for parser in parser_list:

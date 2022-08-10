@@ -1,18 +1,18 @@
 [Data]
-pretrained_embeddings_file = emb/giga.100.txt.sample
-data_dir = PC
-train_file = %(data_dir)s/PC-DEV.conll.mini
-dev_file = %(data_dir)s/PC-Dev.conll.mini 
-test_file = %(data_dir)s/PC-Dev.conll.mini
-train_target_file = %(data_dir)s/PC-DEV.conll.mini
+pretrained_embeddings_file = example/giga.100.txt.sample
+data_dir = example
+train_file = %(data_dir)s/BC/BC-Train.conll.mini
+dev_file = %(data_dir)s/PC/PC-Train.conll.mini 
+test_file = %(data_dir)s/PC/PC-Train.conll.mini
+train_target_file = %(data_dir)s/PC/PC-Train.conll.mini
 min_occur_count = 2
 
 [Save]
-save_dir = new-parser-model
+save_dir = example/new-parser-model
 config_file = %(save_dir)s/config.cfg
 save_model_path = %(save_dir)s/model
 save_vocab_path = %(save_dir)s/vocab
-load_dir = parser-model
+load_dir = example/new-parser-model
 load_model_path = %(load_dir)s/model
 load_vocab_path = %(load_dir)s/vocab
 
@@ -47,5 +47,5 @@ test_batch_size = 50
 validate_every = 200
 save_after = 10
 update_every = 4
-threshold = 0
+threshold = 0.5
 

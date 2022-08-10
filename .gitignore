@@ -1,0 +1,7 @@
+.DS_Store
+example/PC/PC-Train.conll.mini.*
+data/__pycache__/
+driver/__pycache__/
+basic/__pycache__/
+modules/__pycache__/
+example/new-parser-model/

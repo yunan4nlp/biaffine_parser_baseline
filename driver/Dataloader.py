@@ -1,4 +1,4 @@
-from data.Vocab import *
+from basic.Vocab import *
 import numpy as np
 import torch
 from torch.autograd import Variable

@@ -1,5 +1,5 @@
-from driver.Layer import *
-from data.Vocab import *
+from modules.Layer import *
+from basic.Vocab import *
 
 
 def drop_input_independent(word_embeddings, tag_embeddings, dropout_emb):

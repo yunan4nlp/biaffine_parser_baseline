@@ -1,21 +1,20 @@
-import sys
-sys.path.extend(["../../","../","./"])
 import time
 import torch.optim.lr_scheduler
 import torch.nn as nn
 import random
 import argparse
-from driver.Config import *
-from driver.Model import *
+from basic.Config import *
+from modules.Model import *
 from driver.Parser import *
-from data.Dataloader import *
+from driver.Dataloader import *
 import pickle
 
-def train(data, dev_data, parser, vocab, config):
+def train(data, dev_data, test_data, parser, vocab, config):
     optimizer = Optimizer(filter(lambda p: p.requires_grad, parser.model.parameters()), config)
 
     global_step = 0
     best_UAS = 0
+    best_LAS = 0
     batch_num = int(np.ceil(len(data) / float(config.train_batch_size)))
     for iter in range(config.train_iters):
         start_time = time.time()
@@ -24,12 +23,12 @@ def train(data, dev_data, parser, vocab, config):
 
         overall_arc_correct, overall_label_correct, overall_total_arcs = 0, 0, 0
         for onebatch in data_iter(data, config.train_batch_size, True):
-            words, extwords, tags, heads, rels, lengths, masks = \
+            words, extwords, tags, heads, rels, lengths, masks, scores = \
                 batch_data_variable(onebatch, vocab)
             parser.model.train()
 
             parser.forward(words, extwords, tags, masks)
-            loss = parser.compute_loss(heads, rels, lengths)
+            loss = parser.compute_loss(heads, rels, lengths, scores, config.threshold)
             loss = loss / config.update_every
             loss_value = loss.data.cpu().numpy()
             loss.backward()
@@ -38,15 +37,15 @@ def train(data, dev_data, parser, vocab, config):
             overall_arc_correct += arc_correct
             overall_label_correct += label_correct
             overall_total_arcs += total_arcs
-            uas = overall_arc_correct * 100.0 / overall_total_arcs
-            las = overall_label_correct * 100.0 / overall_total_arcs
+            uas = overall_arc_correct.item() * 100.0 / overall_total_arcs
+            las = overall_label_correct.item() * 100.0 / overall_total_arcs
             during_time = float(time.time() - start_time)
             print("Step:%d, ARC:%.2f, REL:%.2f, Iter:%d, batch:%d, length:%d,time:%.2f, loss:%.2f" \
-                %(global_step, uas, las, iter, batch_iter, overall_total_arcs, during_time, loss_value[0]))
+                %(global_step, uas, las, iter, batch_iter, overall_total_arcs, during_time, loss_value))
 
             batch_iter += 1
             if batch_iter % config.update_every == 0 or batch_iter == batch_num:
-                nn.utils.clip_grad_norm(filter(lambda p: p.requires_grad, parser.model.parameters()), \
+                nn.utils.clip_grad_norm_(filter(lambda p: p.requires_grad, parser.model.parameters()), \
                                         max_norm=config.clip)
                 optimizer.step()
                 parser.model.zero_grad()       
@@ -57,9 +56,13 @@ def train(data, dev_data, parser, vocab, config):
                     evaluate(dev_data, parser, vocab, config.dev_file + '.' + str(global_step))
                 print("Dev: uas = %d/%d = %.2f, las = %d/%d =%.2f" % \
                       (arc_correct, arc_total, dev_uas, rel_correct, arc_total, dev_las))
-                if dev_uas > best_UAS:
-                    print("Exceed best uas: history = %.2f, current = %.2f" %(best_UAS, dev_uas))
-                    best_UAS = dev_uas
+                arc_correct, rel_correct, arc_total, test_uas, test_las = \
+                    evaluate(test_data, parser, vocab, config.test_file + '.' + str(global_step))
+                print("Test: uas = %d/%d = %.2f, las = %d/%d =%.2f" % \
+                      (arc_correct, arc_total, test_uas, rel_correct, arc_total, test_las))
+                if dev_las > best_LAS:
+                    print("Exceed best las: history = %.2f, current = %.2f" %(best_LAS, dev_las))
+                    best_LAS = dev_las
                     if config.save_after > 0 and iter > config.save_after:
                         torch.save(parser.model.state_dict(), config.save_model_path)
 
@@ -71,13 +74,13 @@ def evaluate(data, parser, vocab, outputFile):
     arc_total_test, arc_correct_test, rel_total_test, rel_correct_test = 0, 0, 0, 0
 
     for onebatch in data_iter(data, config.test_batch_size, False):
-        words, extwords, tags, heads, rels, lengths, masks = \
-            batch_data_variable(onebatch, vocab)
+        words, extwords, tags, heads, rels, lengths, masks, scores = batch_data_variable(onebatch, vocab, ignoreTree=True)
         count = 0
         arcs_batch, rels_batch = parser.parse(words, extwords, tags, lengths, masks)
         for tree in batch_variable_depTree(onebatch, arcs_batch, rels_batch, lengths, vocab):
             printDepTree(output, tree)
-            arc_total, arc_correct, rel_total, rel_correct = evalDepTree(tree, onebatch[count])
+            # arc_total, arc_correct, rel_total, rel_correct = evalDepTree(tree, onebatch[count])
+            arc_total, arc_correct, rel_total, rel_correct = evalDepTree(onebatch[count], tree)
             arc_total_test += arc_total
             arc_correct_test += arc_correct
             rel_total_test += rel_total
@@ -127,13 +130,15 @@ if __name__ == '__main__':
     torch.cuda.manual_seed(666)
     torch.manual_seed(666)
 
+    print("Process ID {}, Process Parent ID {}".format(os.getpid(), os.getppid()))
+
     ### gpu
     gpu = torch.cuda.is_available()
     print("GPU available: ", gpu)
     print("CuDNN: \n", torch.backends.cudnn.enabled)
 
     argparser = argparse.ArgumentParser()
-    argparser.add_argument('--config_file', default='examples/default.cfg')
+    argparser.add_argument('--config_file', default='../ctb.parser.cfg.debug')
     argparser.add_argument('--model', default='BaseParser')
     argparser.add_argument('--thread', default=4, type=int, help='thread num')
     argparser.add_argument('--use-cuda', action='store_true', default=True)
@@ -141,7 +146,9 @@ if __name__ == '__main__':
     args, extra_args = argparser.parse_known_args()
     config = Configurable(args.config_file, extra_args)
 
-    vocab = creatVocab(config.train_file, config.min_occur_count)
+    # vocab = creatVocab(config.train_file, config.min_occur_count)
+    vocab = creatVocab([config.train_file, config.train_target_file]
+                       , config.min_occur_count)
     vec = vocab.load_pretrained_embs(config.pretrained_embeddings_file)
     pickle.dump(vocab, open(config.save_vocab_path, 'wb'))
 
@@ -159,10 +166,15 @@ if __name__ == '__main__':
     if config.use_cuda:
         torch.backends.cudnn.enabled = True
         model = model.cuda()
+    print(model)
 
     parser = BiaffineParser(model, vocab.ROOT)
+    print(parser)
 
     data = read_corpus(config.train_file, vocab)
+    data_target = read_corpus(config.train_target_file, vocab)
+    data.extend(data_target)
     dev_data = read_corpus(config.dev_file, vocab)
+    test_data = read_corpus(config.test_file, vocab)
 
-    train(data, dev_data, parser, vocab, config)
+    train(data, dev_data, test_data, parser, vocab, config)

@@ -1,5 +1,5 @@
 from collections import Counter
-from data.Dependency import *
+from basic.Dependency import *
 import numpy as np
 
 class Vocab(object):

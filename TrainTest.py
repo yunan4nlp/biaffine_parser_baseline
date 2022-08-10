@@ -7,6 +7,7 @@ from basic.Config import *
 from modules.Model import *
 from driver.Parser import *
 from driver.Dataloader import *
+from basic.Optimizer import *
 import pickle
 
 def train(data, dev_data, test_data, parser, vocab, config):
@@ -98,30 +99,6 @@ def evaluate(data, parser, vocab, outputFile):
     print("sentence num: %d,  parser time = %.2f " % (len(data), during_time))
 
     return arc_correct_test, rel_correct_test, arc_total_test, uas, las
-
-
-class Optimizer:
-    def __init__(self, parameter, config):
-        self.optim = torch.optim.Adam(parameter, lr=config.learning_rate, betas=(config.beta_1, config.beta_2),
-                                      eps=config.epsilon)
-        decay, decay_step = config.decay, config.decay_steps
-        l = lambda epoch: decay ** (epoch // decay_step)
-        self.scheduler = torch.optim.lr_scheduler.LambdaLR(self.optim, lr_lambda=l)
-
-    def step(self):
-        self.optim.step()
-        self.schedule()
-        self.optim.zero_grad()
-
-    def schedule(self):
-        self.scheduler.step()
-
-    def zero_grad(self):
-        self.optim.zero_grad()
-
-    @property
-    def lr(self):
-        return self.scheduler.get_lr()
 
 
 if __name__ == '__main__':

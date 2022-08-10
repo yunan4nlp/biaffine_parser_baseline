@@ -24,8 +24,8 @@ class Configurable(object):
 				print(k, v)
 
 	@property
-	def pretrained_embeddings_file(self):
-		return self._config.get('Data','pretrained_embeddings_file')
+	def plm_dir(self):
+		return self._config.get('Data','plm_dir')
 	@property
 	def data_dir(self):
 		return self._config.get('Data','data_dir')
@@ -99,7 +99,19 @@ class Configurable(object):
 	@property
 	def dropout_mlp(self):
 		return self._config.getfloat('Network','dropout_mlp')
-	
+	@property
+	def start_layer(self):
+		return self._config.getint('Network','start_layer')
+	@property
+	def end_layer(self):
+		return self._config.getint('Network','end_layer')
+	@property
+	def tune_start_layer(self):
+		return self._config.getint('Network','tune_start_layer')
+
+	@property
+	def plm_learning_rate(self):
+		return self._config.getfloat('Optimizer','plm_learning_rate')
 	@property
 	def learning_rate(self):
 		return self._config.getfloat('Optimizer','learning_rate')

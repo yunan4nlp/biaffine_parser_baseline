@@ -1,4 +1,5 @@
 [Data]
+plm_dir = bert-base-chinese
 pretrained_embeddings_file = example/giga.100.txt.sample
 data_dir = example
 train_file = %(data_dir)s/BC/BC-Train.conll.mini
@@ -27,8 +28,12 @@ dropout_lstm_hidden = 0.33
 mlp_arc_size = 500
 mlp_rel_size = 100
 dropout_mlp = 0.33
+start_layer = 0
+end_layer = 13
+tune_start_layer = 8
 
 [Optimizer]
+plm_learning_rate = 2e-5
 learning_rate = 2e-3
 decay = .75
 decay_steps = 5000

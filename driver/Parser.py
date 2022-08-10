@@ -1,3 +1,4 @@
+from statistics import mode
 import torch.nn.functional as F
 from basic.MST import *
 import torch.optim.lr_scheduler
@@ -22,20 +23,48 @@ def _model_var(model, x):
 
 
 class BiaffineParser(object):
-    def __init__(self, model, root_id):
+    def __init__(self, plm_extractor, model, root_id):
+        self.plm_extractor = plm_extractor
         self.model = model
         self.root = root_id
         p = next(filter(lambda p: p.requires_grad, model.parameters()))
         self.use_cuda = p.is_cuda
         self.device = p.get_device() if self.use_cuda else None
+    
+    def train(self):
+        self.plm_extractor.train()
+        self.model.train()
 
-    def forward(self, words, extwords, tags, masks):
+    def eval(self):
+        self.plm_extractor.eval()
+        self.model.eval()
+
+    def forward(self, 
+                inputs, token_indexs, dens,
+                tags, masks):
+        input_ids, token_type_ids, attention_mask  = inputs
         if self.use_cuda:
-            words, extwords = words.cuda(self.device), extwords.cuda(self.device),
+            input_ids = input_ids.cuda()
+            token_type_ids = token_type_ids.cuda()
+            attention_mask = attention_mask.cuda()
+            token_indexs = token_indexs.cuda()
+            dens = dens.cuda()
+
             tags = tags.cuda(self.device)
             masks = masks.cuda(self.device)
+        
+        token_reps = self.plm_extractor(input_ids, token_type_ids, attention_mask)['last_hidden_state']
 
-        arc_logits, rel_logits = self.model.forward(words, extwords, tags, masks)
+        b, t, h = token_reps.size()
+        _, w, ts = token_indexs.size()
+        token_indexs = token_indexs.unsqueeze(-1).repeat(1, 1, 1, h)
+        t_reps = torch.gather(token_reps, index=token_indexs.view(b, -1, h), dim=1).view(b, w, ts, h)
+        x_inputs = torch.bmm(dens.view(b * w, 1, ts), t_reps.view(b * w, ts, h)).view(b, w, h)
+
+
+        arc_logits, rel_logits = self.model.forward(
+            x_inputs, tags, masks
+        )
         # cache
         self.arc_logits = arc_logits
         self.rel_logits = rel_logits
@@ -132,9 +161,9 @@ class BiaffineParser(object):
             rel_probs.append(rel_prob)
         return np.array(rel_probs)
 
-    def parse(self, words, extwords, tags, lengths, masks, predict=False):
-        if words is not None:
-            self.forward(words, extwords, tags, masks)
+    def parse(self, inputs, token_indexs, dens, tags, lengths, masks, predict=False):
+        if inputs is not None:
+            self.forward(inputs, token_indexs, dens, tags, masks)
         ROOT = self.root
         arcs_batch, arc_values, rels_batch = [], [], []
         arc_logits = self.arc_logits.data.cpu().numpy()

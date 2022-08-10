@@ -1,3 +1,4 @@
+import token
 from modules.Layer import *
 from basic.Vocab import *
 
@@ -32,32 +33,19 @@ def drop_sequence_sharedmask(inputs, dropout, batch_first=True):
 
 
 class ParserModel(nn.Module):
-    def __init__(self, vocab, config, pretrained_embedding):
+    def __init__(self, vocab, config):
         super(ParserModel, self).__init__()
         self.config = config
-        self.word_embed = nn.Embedding(vocab.vocab_size, config.word_dims, padding_idx=0)
-        self.extword_embed = nn.Embedding(vocab.extvocab_size, config.word_dims, padding_idx=0)
+
+        self.word_mlps = NonLinear(
+            input_size = config.plm_hidden_size,
+            hidden_size = 2*config.lstm_hiddens,
+            activation = nn.LeakyReLU(0.1))
+
         self.tag_embed = nn.Embedding(vocab.tag_size, config.tag_dims, padding_idx=0)
 
-        word_init = np.zeros((vocab.vocab_size, config.word_dims), dtype=np.float32)
-        self.word_embed.weight.data.copy_(torch.from_numpy(word_init))
-        
         tag_init = np.random.randn(vocab.tag_size, config.tag_dims).astype(np.float32)
         self.tag_embed.weight.data.copy_(torch.from_numpy(tag_init))
-
-        self.extword_embed.weight.data.copy_(torch.from_numpy(pretrained_embedding))
-        self.extword_embed.weight.requires_grad = False
-
-
-        self.lstm = MyLSTM(
-            input_size=config.word_dims + config.tag_dims,
-            hidden_size=config.lstm_hiddens,
-            num_layers=config.lstm_layers,
-            batch_first=True,
-            bidirectional=True,
-            dropout_in = config.dropout_lstm_input,
-            dropout_out=config.dropout_lstm_hidden,
-        )
 
         self.mlp_arc_dep = NonLinear(
             input_size = 2*config.lstm_hiddens,
@@ -77,20 +65,9 @@ class ParserModel(nn.Module):
         self.rel_biaffine = Biaffine(config.mlp_rel_size, config.mlp_rel_size, \
                                      vocab.rel_size, bias=(True, True))
 
-    def forward(self, words, extwords, tags, masks):
-        # x = (batch size, sequence length, dimension of embedding)
-        x_word_embed = self.word_embed(words)
-        x_extword_embed = self.extword_embed(extwords)
-        x_embed = x_word_embed + x_extword_embed
+    def forward(self, x_inputs, tags, masks):
         x_tag_embed = self.tag_embed(tags)
-
-        if self.training:
-            x_embed, x_tag_embed = drop_input_independent(x_embed, x_tag_embed, self.config.dropout_emb)
-
-        x_lexical = torch.cat((x_embed, x_tag_embed), dim=2)
-
-        outputs, _ = self.lstm(x_lexical, masks, None)
-        outputs = outputs.transpose(1, 0)
+        outputs = self.word_mlps(x_inputs)
 
         if self.training:
             outputs = drop_sequence_sharedmask(outputs, self.config.dropout_mlp)

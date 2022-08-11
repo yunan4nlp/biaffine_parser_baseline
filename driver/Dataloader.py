@@ -170,7 +170,7 @@ def token_variable(onebatch):
                 token_indexs[idx, idy, idz] = offset 
                 batch_dens[idx, idy, idz] = den
                 offset += 1
-    token_indexs =  torch.tensor(token_indexs)
+    token_indexs =  torch.tensor(token_indexs).type(torch.int64)
     batch_dens =  torch.tensor(batch_dens)
 
     return (input_ids, token_type_ids, attention_mask), token_indexs, batch_dens

@@ -167,6 +167,7 @@ if __name__ == '__main__':
 
     if config.use_cuda:
         torch.backends.cudnn.enabled = True
+        plm_extractor = plm_extractor.cuda()
         model = model.cuda()
 
     parser = BiaffineParser(plm_extractor, model, vocab.ROOT)
